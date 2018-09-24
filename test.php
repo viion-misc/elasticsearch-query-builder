@@ -21,8 +21,16 @@ $settings = [
 // index mappings
 $mapping = [
     'search' => [
+        '_source' => [ 'enabled' => true ],
         'dynamic' => true,
-        '_source'    => [ 'enabled' => true ],
+        'dynamic_templates' => [
+            [
+                'strings' => [
+                    'match_mapping_type' => 'string',
+                    'mapping' => ElasticMapping::STRING
+                ]
+            ]
+        ],
     ],
 ];
 
@@ -65,7 +73,39 @@ $data = '{
         "LevelItem": 140,
         "Col": "X",
         "Name": "Zantetsuken Test"
-    }   
+    },
+    "12": {
+        "ID": 12,
+        "ItemUICategory.Name": "Other\'s Arm",
+        "LevelEquip": 50,
+        "LevelItem": 140,
+        "Col": "X",
+        "Name": "two words"
+    },
+    "13": {
+        "ID": 13,
+        "ItemUICategory.Name": "Other\'s Arm",
+        "LevelEquip": 50,
+        "LevelItem": 140,
+        "Col": "X",
+        "Name": "Omega Battleaxe"
+    },
+    "15": {
+        "ID": 15,
+        "ItemUICategory.Name": "Other\'s Arm",
+        "LevelEquip": 50,
+        "LevelItem": 140,
+        "Col": "X",
+        "Name": "Omega FoxAxe"
+    },
+    "20": {
+        "ID": 20,
+        "ItemUICategory.Name": "Other\'s Arm",
+        "LevelEquip": 50,
+        "LevelItem": 140,
+        "Col": "X",
+        "Name": "this is quite a long bit of text that will be searched"
+    } 
 }';
 
 $elastic->bulkDocuments('item', 'search', json_decode($data, true));
@@ -74,9 +114,10 @@ $elastic->bulkDocuments('item', 'search', json_decode($data, true));
 sleep(2);
 
 $query = (new ElasticQuery())
-    ->queryWildcard('Name', 'tet')
-    ->filterRange('LevelEquip', 40, 'gte')
-    ->filterTerm('Col', 'X');
+    ->queryCustom('Name', 'omage axe')
+    ->addSuggestion('Name', 'omage axe');
+    //->queryIds([1675,1676]);
+    //->queryWildcard('Name', 'battle');
 
 print_r(
     json_encode(

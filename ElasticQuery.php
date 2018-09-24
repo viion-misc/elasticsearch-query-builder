@@ -7,6 +7,7 @@ class ElasticQuery
     /** @var array */
     private $body = [];
     private $filters = [];
+    private $suggestions = [];
 
     /**
      * Types: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-bool-query.html
@@ -15,23 +16,27 @@ class ElasticQuery
      * - should
      * - filter
      */
-    public function getQuery(string $type = 'must'): array
+    public function getQuery(string $type = 'should'): array
     {
-        $query = [
-            'bool' => []
+        $response = [
+            'query' => [
+                'bool' => []
+            ]
         ];
 
         if ($this->body) {
-            $query['bool'][$type] = $this->body;
+            $response['query']['bool'][$type] = $this->body;
         }
 
         if ($this->filters) {
-            $query['bool']['filter'] = $this->filters;
+            $response['query']['bool']['filter'] = $this->filters;
         }
 
-        return [
-            'query' => $query
-        ];
+        if ($this->suggestions) {
+            $response['suggest'] = $this->suggestions;
+        }
+
+        return $response;
     }
 
     //------------------------------------------------------------------------------------------------------------------
@@ -71,6 +76,53 @@ class ElasticQuery
         return $this;
     }
 
+    // https://www.elastic.co/guide/en/elasticsearch/reference/current/search-suggesters.html
+    public function addSuggestion(string $field, string $value): self
+    {
+        $this->suggestions['suggesty'] = [
+            'text' => strtolower($value),
+            'term' => [
+                'field' => $field,
+            ]
+        ];
+
+        return $this;
+    }
+
+    // https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-ids-query.html
+    public function queryIds(array $ids): self
+    {
+        $this->body[]['ids'] = [
+            'values' => $ids
+        ];
+
+        return $this;
+    }
+
+    /**
+     * This combines: WildCard Plus and Fuzzy
+     */
+    public function queryCustom(string $field, string $value): self
+    {
+        return $this
+            ->queryWildcardPlus($field, $value)
+            ->queryFuzzy($field, $value);
+    }
+
+    // https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-fuzzy-query.html
+    public function queryFuzzy(string $field, string $value): self
+    {
+        $this->body[]['match'] = [
+            $field => [
+                'query' => strtolower($value),
+                'fuzziness' => '5',
+            ]
+        ];
+
+        return $this;
+    }
+
+    // https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-term-query.html
     public function queryTerm(string $field, string $value): self
     {
         $this->body[]['term'] = [
@@ -79,6 +131,7 @@ class ElasticQuery
         return $this;
     }
 
+    // https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-wildcard-query.html
     public function queryWildcard(string $field, string $value): self
     {
         $this->body[]['wildcard'] = [
@@ -87,6 +140,19 @@ class ElasticQuery
         return $this;
     }
 
+    // this is similar to wildcard but will wildcard each word individually.
+    public function queryWildcardPlus(string $field, string $value): self
+    {
+        foreach (explode(' ', $value) as $word) {
+            $this->body[]['wildcard'] = [
+                $field => sprintf('*%s*', strtolower($word))
+            ];
+        }
+
+        return $this;
+    }
+
+    // https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-prefix-query.html
     public function queryPrefix(string $field, string $value): self
     {
         $this->body[]['prefix'] = [
@@ -95,6 +161,7 @@ class ElasticQuery
         return $this;
     }
 
+    // https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-match-query.html
     public function queryMatch(string $field, string $value): self
     {
         $this->body[]['match'] = [
@@ -103,6 +170,7 @@ class ElasticQuery
         return $this;
     }
 
+    // https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-match-query-phrase.html
     public function queryMatchPhrase(string $field, string $value): self
     {
         $this->body[]['match_phrase'] = [
@@ -111,6 +179,7 @@ class ElasticQuery
         return $this;
     }
 
+    // https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-match-query-phrase-prefix.html
     public function queryMatchPhrasePrefix(string $field, string $value): self
     {
         $this->body[]['match_phrase_prefix'] = [
@@ -119,6 +188,7 @@ class ElasticQuery
         return $this;
     }
 
+    // https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-multi-match-query.html
     public function queryMultiMatch(array $fields, string $value): self
     {
         $this->body[]['multi_match'] = [
@@ -128,14 +198,26 @@ class ElasticQuery
         return $this;
     }
 
-    // todo - does not work
     // https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
     public function queryString(string $field, string $query): self
     {
-        $this->body[]['query_string'][] = [
+        $this->body[]['query_string'] = [
             'default_field' => $field,
             'query' => $query
         ];
+        return $this;
+    }
+
+    // https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-mlt-query.html
+    public function querySimilar($field, string $value): self
+    {
+        $this->body[]['more_like_this'] = [
+            'fields' => [ $field ],
+            'like'   => $value,
+            'min_term_freq' => 1,
+            'max_query_terms' => 12,
+        ];
+
         return $this;
     }
 

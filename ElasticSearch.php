@@ -78,7 +78,7 @@ class ElasticSearch
 
     public function bulkDocuments(string $index, string $type, array $documents): void
     {
-        foreach (array_chunk($documents, self::MAX_BULK_DOCUMENTS) as $docs) {
+        foreach (array_chunk($documents, self::MAX_BULK_DOCUMENTS, true) as $docs) {
             $params = [
                 'body' => []
             ];
